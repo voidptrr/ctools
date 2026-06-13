@@ -21,15 +21,34 @@ The default shell includes `format-code`.
 checks = ctools.lib.mkCChecks {
   inherit pkgs;
   src = ./.;
-  formatDirs = ["src" "tests" "include"];
-  nixDirs = ["flake.nix" "shell.nix" "checks" "packages"];
-  sourceDirs = ["src"];
-  headerDirs = ["include"];
   extraPackages = [
     pkgs.pkg-config
   ];
 };
 ```
+
+By default, `mkCChecks` uses common project paths when they exist:
+
+- C formatting: `src`, `tests`, `include`
+- C sources: `src`, `tests`
+- public headers: `include`
+- Nix formatting: `flake.nix`, `shell.nix`, `checks`, `packages`, `tools`, `nix`
+
+For unusual layouts, append more paths:
+
+```nix
+checks = ctools.lib.mkCChecks {
+  inherit pkgs;
+  src = ./.;
+  extraSourceDirs = ["examples"];
+  extraHeaderDirs = ["vendor/foo/include"];
+  extraFormatDirs = ["examples"];
+  extraNixDirs = ["config"];
+};
+```
+
+Use `formatDirs`, `nixDirs`, `sourceDirs`, or `headerDirs` only when you want to
+replace the defaults completely.
 
 `code-check` runs clang-tidy for `*.c` files under `sourceDirs`, then runs a
 standalone header check for `*.h` files under both `sourceDirs` and
@@ -43,5 +62,5 @@ The generated checks are flake checks. Run them with `nix flake check`.
 ```yaml
 jobs:
   checks:
-    uses: owner/ctools/.github/workflows/checks.yml@v1
+    uses: owner/ctools/.github/workflows/checks.yml@<commit-sha>
 ```

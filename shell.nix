@@ -2,12 +2,14 @@
   pkgs,
   extraPackages ? [],
 }: let
+  format-code = import ./packages/format-code.nix {inherit pkgs;};
   defaultPackages = with pkgs; [
     gcc
     cmake
     ninja
     clang-tools
     alejandra
+    format-code
   ];
 in
   pkgs.mkShell {

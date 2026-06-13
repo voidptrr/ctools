@@ -13,6 +13,8 @@ devShells.default = ctools.lib.mkCShell {
 };
 ```
 
+The default shell includes `format-code`.
+
 ## Checks
 
 ```nix
@@ -20,7 +22,7 @@ checks = ctools.lib.mkCChecks {
   inherit pkgs;
   src = ./.;
   formatDirs = ["src" "tests" "include"];
-  nixDirs = ["flake.nix" "shell.nix" "checks"];
+  nixDirs = ["flake.nix" "shell.nix" "checks" "packages"];
   sourceDirs = ["src"];
   headerDirs = ["include"];
   extraPackages = [

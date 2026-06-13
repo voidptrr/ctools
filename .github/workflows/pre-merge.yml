@@ -8,6 +8,7 @@ on:
       - "flake.nix"
       - "flake.lock"
       - "checks/**"
+      - "packages/**"
       - "shell.nix"
       - ".github/workflows/checks.yml"
       - ".github/workflows/pre-merge.yml"

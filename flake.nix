@@ -27,6 +27,13 @@
 
     formatter = forEachSystem ({pkgs}: pkgs.alejandra);
 
+    packages = forEachSystem ({pkgs}: let
+      format-code = import ./packages/format-code.nix {inherit pkgs;};
+    in {
+      inherit format-code;
+      default = format-code;
+    });
+
     devShells = forEachSystem ({pkgs}: {
       default = self.lib.mkCShell {inherit pkgs;};
     });
@@ -35,7 +42,7 @@
       checks = self.lib.mkCChecks {
         inherit pkgs;
         src = self;
-        nixDirs = ["flake.nix" "shell.nix" "checks"];
+        nixDirs = ["flake.nix" "shell.nix" "checks" "packages"];
       };
     in {
       inherit (checks) format-check;

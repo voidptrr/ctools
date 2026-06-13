@@ -20,7 +20,7 @@ checks = ctools.lib.mkCChecks {
   inherit pkgs;
   src = ./.;
   formatDirs = ["src" "tests" "include"];
-  nixDirs = ["."];
+  nixDirs = ["flake.nix" "shell.nix" "checks"];
   sourceDirs = ["src"];
   headerDirs = ["include"];
   headerIncludeFlags = ["-Iinclude"];

@@ -20,7 +20,10 @@
           pkgs = import nixpkgs {inherit system;};
         });
   in {
-    lib = import ./nix {inherit self;};
+    lib = {
+      mkCShell = import ./shell.nix;
+      mkCChecks = import ./checks;
+    };
 
     formatter = forEachSystem ({pkgs}: pkgs.alejandra);
 
@@ -32,7 +35,7 @@
       checks = self.lib.mkCChecks {
         inherit pkgs;
         src = self;
-        nixDirs = ["."];
+        nixDirs = ["flake.nix" "shell.nix" "checks"];
       };
     in {
       inherit (checks) format-check;

@@ -7,7 +7,8 @@ on:
     paths:
       - "flake.nix"
       - "flake.lock"
-      - "nix/**"
+      - "checks/**"
+      - "shell.nix"
       - ".github/workflows/pre-merge.yml"
 
 concurrency:

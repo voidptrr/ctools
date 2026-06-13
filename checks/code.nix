@@ -33,6 +33,10 @@
     ++ extraHardeningLinkerFlags;
 
   shellArgs = values: lib.escapeShellArgs values;
+  headerSearchDirs = lib.unique (sourceDirs ++ headerDirs);
+  effectiveHeaderIncludeFlags =
+    headerIncludeFlags
+    ++ map (dir: "-I${dir}") headerSearchDirs;
 
   copySource = ''
     cp -R --no-preserve=mode,ownership ${src} source
@@ -54,7 +58,7 @@ in
 
     source_dirs=(${shellArgs sourceDirs})
     header_dirs=(${shellArgs headerDirs})
-    header_include_flags=(${shellArgs headerIncludeFlags})
+    header_include_flags=(${shellArgs effectiveHeaderIncludeFlags})
     cmake_args=(${shellArgs cmakeArgs})
 
     rm -rf ${lib.escapeShellArg buildDir}
@@ -94,11 +98,13 @@ in
       done < <(find "$dir" -type f -name '*.c')
     done
 
-    for dir in "''${header_dirs[@]}"; do
-      [ ! -d "$dir" ] || while IFS= read -r file; do
-        run_clang_tidy "$file" -- "''${header_include_flags[@]}"
-      done < <(find "$dir" -type f -name '*.h')
-    done
+    while IFS= read -r -d "" file; do
+      run_clang_tidy "$file" -- "''${header_include_flags[@]}"
+    done < <(
+      for dir in "''${source_dirs[@]}" "''${header_dirs[@]}"; do
+        [ ! -d "$dir" ] || find "$dir" -type f -name '*.h' -print0
+      done | sort -zu
+    )
 
     ctest --test-dir ${lib.escapeShellArg buildDir} --output-on-failure
     touch "$out"

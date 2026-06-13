@@ -23,12 +23,16 @@ checks = ctools.lib.mkCChecks {
   nixDirs = ["flake.nix" "shell.nix" "checks"];
   sourceDirs = ["src"];
   headerDirs = ["include"];
-  headerIncludeFlags = ["-Iinclude"];
   extraPackages = [
     pkgs.pkg-config
   ];
 };
 ```
+
+`code-check` runs clang-tidy for `*.c` files under `sourceDirs`, then runs a
+standalone header check for `*.h` files under both `sourceDirs` and
+`headerDirs`. Those directories are also added as default include search roots
+for the standalone header check.
 
 The generated checks are flake checks. Run them with `nix flake check`.
 

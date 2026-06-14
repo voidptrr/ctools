@@ -7,13 +7,20 @@ Shared C project checks for Nix flakes and GitHub Actions.
 ```nix
 devShells.default = ctools.lib.mkCShell {
   inherit pkgs;
-  extraPackages = [
+  nativeBuildInputs = [
     pkgs.pkg-config
+  ];
+  buildInputs = [
+    pkgs.openssl
+    pkgs.zlib
   ];
 };
 ```
 
-The default shell includes `format-code`.
+The default shell includes `format-code` and common C development tools. Use
+`nativeBuildInputs` for build-time tools such as `pkg-config`, `buildInputs` for
+libraries such as `openssl` or `zlib`, and `extraPackages` for additional
+packages that do not need to be classified.
 
 ## Checks
 

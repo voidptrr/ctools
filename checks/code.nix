@@ -15,20 +15,20 @@
   cmakeArgs = extraCmakeArgs;
   hardeningFlags =
     [
-      "-O1"
-      "-g3"
-      "-fno-omit-frame-pointer"
-      "-fstack-protector-strong"
-      "-D_FORTIFY_SOURCE=3"
-      "-fPIE"
-      "-fsanitize=address,undefined"
+      "-O1" # Enables _FORTIFY_SOURCE checks while keeping sanitizer stacks readable.
+      "-g3" # Emits full debug info so sanitizer and test failures point at useful source locations.
+      "-fno-omit-frame-pointer" # Preserves frame pointers for reliable sanitizer backtraces.
+      "-fstack-protector-strong" # Adds stack canaries to functions with likely stack-smashing risk.
+      "-D_FORTIFY_SOURCE=3" # Adds compile-time and runtime bounds checks for supported libc calls.
+      "-fPIE" # Builds position-independent objects required for a PIE executable.
+      "-fsanitize=address,undefined" # Instruments memory-safety and undefined-behavior checks.
     ]
     ++ extraHardeningFlags;
   hardeningLinkerFlags =
     [
-      "-Wl,-z,relro,-z,now"
-      "-pie"
-      "-fsanitize=address,undefined"
+      "-Wl,-z,relro,-z,now" # Makes relocation tables read-only and resolves symbols at startup.
+      "-pie" # Links the executable as position-independent so ASLR can randomize it fully.
+      "-fsanitize=address,undefined" # Links the sanitizer runtimes required by the instrumentation.
     ]
     ++ extraHardeningLinkerFlags;
 

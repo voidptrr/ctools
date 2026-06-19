@@ -20,54 +20,46 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 {
-  description = "shared C project tooling";
+  pkgs,
+  src,
+  extraPackages ? [],
+  formatDirs ? null,
+  nixDirs ? null,
+  extraFormatDirs ? [],
+  extraNixDirs ? [],
+  zigTestArgs ? [
+    "test"
+    "--summary"
+    "all"
+  ],
+}: let
+  lib = pkgs.lib;
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  existing = paths: builtins.filter (path: builtins.pathExists (src + "/${path}")) paths;
+
+  defaultFormatDirs = existing ["src" "tests" "include"];
+  defaultNixDirs = existing ["flake.nix" "shell.nix" "checks" "packages" "tools" "nix"];
+
+  effectiveFormatDirs = lib.unique ((
+      if formatDirs == null
+      then defaultFormatDirs
+      else formatDirs
+    )
+    ++ extraFormatDirs);
+  effectiveNixDirs = lib.unique ((
+      if nixDirs == null
+      then defaultNixDirs
+      else nixDirs
+    )
+    ++ extraNixDirs);
+in {
+  format-check = import ./format.nix {
+    inherit pkgs src extraPackages;
+    formatDirs = effectiveFormatDirs;
+    nixDirs = effectiveNixDirs;
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    ...
-  }: let
-    systems = [
-      "x86_64-linux"
-      "aarch64-linux"
-    ];
-    forEachSystem = f:
-      nixpkgs.lib.genAttrs systems (system:
-        f {
-          pkgs = import nixpkgs {inherit system;};
-        });
-  in {
-    lib = {
-      mkCShell = import ./shell.nix;
-      mkCChecks = import ./checks;
-      mkZigCChecks = import ./checks/zig.nix;
-    };
-
-    formatter = forEachSystem ({pkgs}: pkgs.alejandra);
-
-    packages = forEachSystem ({pkgs}: let
-      format-code = import ./packages/format-code.nix {inherit pkgs;};
-    in {
-      inherit format-code;
-      default = format-code;
-    });
-
-    devShells = forEachSystem ({pkgs}: {
-      default = self.lib.mkCShell {inherit pkgs;};
-    });
-
-    checks = forEachSystem ({pkgs}: let
-      checks = self.lib.mkCChecks {
-        inherit pkgs;
-        src = self;
-        nixDirs = ["flake.nix" "shell.nix" "checks" "packages"];
-      };
-    in {
-      inherit (checks) format-check;
-    });
+  code-check = import ./zig-code.nix {
+    inherit pkgs src extraPackages zigTestArgs;
   };
 }

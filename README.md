@@ -64,6 +64,17 @@ for the standalone header check.
 
 The generated checks are flake checks. Run them with `nix flake check`.
 
+For Zig-built C projects, use `mkZigCChecks` instead. It keeps the same
+format-check behavior, but its `code-check` runs `zig build test --summary all`
+instead of configuring a CMake build:
+
+```nix
+checks = ctools.lib.mkZigCChecks {
+  inherit pkgs;
+  src = ./.;
+};
+```
+
 ## GitHub Actions
 
 ```yaml

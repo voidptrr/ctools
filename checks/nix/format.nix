@@ -23,70 +23,26 @@
   pkgs,
   src,
   extraPackages ? [],
-  extraCmakeArgs ? [],
-  extraHardeningFlags ? [],
-  extraHardeningLinkerFlags ? [],
-  buildDir ? "build/hardened",
-  enableCTest ? true,
+  nixDirs ? [],
 }: let
   lib = pkgs.lib;
-
-  cmakeArgs = extraCmakeArgs;
-  hardeningFlags =
-    [
-      "-O1"
-      "-g3"
-      "-fno-omit-frame-pointer"
-      "-fstack-protector-strong"
-      "-D_FORTIFY_SOURCE=3"
-      "-fPIE"
-      "-fsanitize=address,undefined"
-    ]
-    ++ extraHardeningFlags;
-  hardeningLinkerFlags =
-    [
-      "-Wl,-z,relro,-z,now"
-      "-pie"
-      "-fsanitize=address,undefined"
-    ]
-    ++ extraHardeningLinkerFlags;
-
   shellArgs = values: lib.escapeShellArgs values;
+
   copySource = ''
     cp -R --no-preserve=mode,ownership ${src} source
     cd source
   '';
 in
-  pkgs.runCommand "c-test-check" {
-    nativeBuildInputs = with pkgs;
-      [
-        cmake
-        gcc
-        ninja
-      ]
-      ++ extraPackages;
+  pkgs.runCommand "nix-format-check" {
+    nativeBuildInputs = [pkgs.alejandra] ++ extraPackages;
   } ''
     ${copySource}
 
-    cmake_args=(${shellArgs cmakeArgs})
+    nix_dirs=(${shellArgs nixDirs})
 
-    rm -rf ${lib.escapeShellArg buildDir}
-
-    cmake \
-      -S . \
-      -B ${lib.escapeShellArg buildDir} \
-      -G Ninja \
-      -DCMAKE_C_FLAGS=${lib.escapeShellArg (shellArgs hardeningFlags)} \
-      -DCMAKE_EXE_LINKER_FLAGS=${lib.escapeShellArg (shellArgs hardeningLinkerFlags)} \
-      "''${cmake_args[@]}"
-
-    cmake --build ${lib.escapeShellArg buildDir}
-
-    ${
-      if enableCTest
-      then "ctest --test-dir ${lib.escapeShellArg buildDir} --output-on-failure"
-      else "true"
-    }
+    if [ "''${#nix_dirs[@]}" -gt 0 ]; then
+      alejandra --check "''${nix_dirs[@]}"
+    fi
 
     touch "$out"
   ''

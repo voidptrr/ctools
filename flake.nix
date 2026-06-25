@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 {
-  description = "shared C and Zig project tooling";
+  description = "simple C and Zig project tooling";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -44,21 +44,14 @@
     lib = {
       mkShell = import ./shell.nix;
       mkChecks = import ./checks;
-      mkCShell = import ./c/shell.nix;
-      mkCChecks = import ./c;
-      mkZigShell = import ./zig/shell.nix;
-      mkZigChecks = import ./zig;
-      mkZigCChecks = import ./zig/c.nix;
     };
 
     formatter = forEachSystem ({pkgs}: pkgs.alejandra);
 
     packages = forEachSystem ({pkgs}: let
       format-code = import ./format-code.nix {inherit pkgs;};
-      c-format-code = import ./c/format-code.nix {inherit pkgs;};
-      zig-format-code = import ./zig/format-code.nix {inherit pkgs;};
     in {
-      inherit format-code c-format-code zig-format-code;
+      inherit format-code;
       default = format-code;
     });
 
@@ -71,10 +64,12 @@
     });
 
     checks = forEachSystem ({pkgs}: let
-      checks = self.lib.mkCChecks {
+      checks = self.lib.mkChecks {
         inherit pkgs;
         src = self;
-        nixDirs = ["flake.nix" "shell.nix" "format-code.nix" "checks" "c" "zig"];
+        enableC = false;
+        enableZig = false;
+        nixDirs = ["flake.nix" "shell.nix" "format-code.nix" "checks"];
       };
     in {
       inherit (checks) format-check;

@@ -1,4 +1,4 @@
-# ctools
+# vtools
 
 Shared C and Zig project tooling for Nix flakes and GitHub Actions.
 
@@ -7,7 +7,7 @@ Shared C and Zig project tooling for Nix flakes and GitHub Actions.
 Use `mkShell` when the project may be C, Zig, or both:
 
 ```nix
-devShells.default = ctools.lib.mkShell {
+devShells.default = vtools.lib.mkShell {
   inherit pkgs;
   src = ./.;
 };
@@ -20,7 +20,7 @@ source directories exist. Zig is enabled when `build.zig` exists.
 Use language-specific shells when detection is not wanted:
 
 ```nix
-devShells.default = ctools.lib.mkCShell {
+devShells.default = vtools.lib.mkCShell {
   inherit pkgs;
   nativeBuildInputs = [pkgs.pkg-config];
   buildInputs = [pkgs.openssl pkgs.zlib];
@@ -28,7 +28,7 @@ devShells.default = ctools.lib.mkCShell {
 ```
 
 ```nix
-devShells.default = ctools.lib.mkZigShell {
+devShells.default = vtools.lib.mkZigShell {
   inherit pkgs;
 };
 ```
@@ -41,7 +41,7 @@ Use `extraPackages` for additional tools that do not need to be classified as
 Use `mkChecks` for automatic C/Zig check selection:
 
 ```nix
-checks = ctools.lib.mkChecks {
+checks = vtools.lib.mkChecks {
   inherit pkgs;
   src = ./.;
 };
@@ -73,7 +73,7 @@ Override detection with `enableCFormat`, `enableCLint`, `enableCTestCheck`,
 Use `mkCChecks` for CMake-built C projects:
 
 ```nix
-checks = ctools.lib.mkCChecks {
+checks = vtools.lib.mkCChecks {
   inherit pkgs;
   src = ./.;
   extraPackages = [pkgs.pkg-config];
@@ -90,7 +90,7 @@ Defaults:
 Append extra paths:
 
 ```nix
-checks = ctools.lib.mkCChecks {
+checks = vtools.lib.mkCChecks {
   inherit pkgs;
   src = ./.;
   extraSourceDirs = ["examples"];
@@ -110,7 +110,7 @@ default.
 Disable CTest while still building:
 
 ```nix
-checks = ctools.lib.mkCChecks {
+checks = vtools.lib.mkCChecks {
   inherit pkgs;
   src = ./.;
   enableCTest = false;
@@ -122,7 +122,7 @@ checks = ctools.lib.mkCChecks {
 Use `mkZigChecks` for Zig projects:
 
 ```nix
-checks = ctools.lib.mkZigChecks {
+checks = vtools.lib.mkZigChecks {
   inherit pkgs;
   src = ./.;
 };
@@ -149,7 +149,7 @@ zig build \
 Append Zig build options after `test --summary all`:
 
 ```nix
-checks = ctools.lib.mkZigChecks {
+checks = vtools.lib.mkZigChecks {
   inherit pkgs;
   src = ./.;
   extraZigBuildArgs = ["-Dfoo=true"];
@@ -160,17 +160,21 @@ Use `zigBuildArgs` only when replacing the default build tail entirely.
 
 ## Zig-Built C
 
-Use `mkZigCChecks` for C projects built by Zig:
+C projects built by Zig usually do not need a special helper. Use `mkChecks`;
+it detects C files for C formatting and `build.zig` for Zig format, lint, and
+test checks:
 
 ```nix
-checks = ctools.lib.mkZigCChecks {
+checks = vtools.lib.mkChecks {
   inherit pkgs;
   src = ./.;
 };
 ```
 
-This combines C formatting with Zig format/lint/test checks. It does not require
-`CMakeLists.txt`, and its test check runs through `zig build`.
+`mkZigCChecks` is still available as an explicit wrapper when you want to force
+that composition without relying on detection. It combines C formatting with Zig
+format/lint/test checks, does not require `CMakeLists.txt`, and runs tests
+through `zig build`.
 
 ## Formatter
 
@@ -200,7 +204,7 @@ CTOOLS_ZIG_FORMAT_DIRS="build.zig src" format-code
 Package construction switches:
 
 ```nix
-format-code = import "${ctools}/format-code.nix" {
+format-code = import "${vtools}/format-code.nix" {
   inherit pkgs;
   enableC = true;
   enableZig = false;
@@ -212,5 +216,5 @@ format-code = import "${ctools}/format-code.nix" {
 ```yaml
 jobs:
   checks:
-    uses: owner/ctools/.github/workflows/checks.yml@<commit-sha>
+    uses: owner/vtools/.github/workflows/checks.yml@<commit-sha>
 ```

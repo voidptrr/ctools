@@ -1,24 +1,3 @@
-# MIT License
-#
-# Copyright (c) 2026 Tommaso Bruno
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
 {
   pkgs,
   src,
@@ -36,20 +15,20 @@
   cmakeArgs = extraCmakeArgs;
   hardeningFlags =
     [
-      "-O1" # Enables _FORTIFY_SOURCE checks while keeping sanitizer stacks readable.
-      "-g3" # Emits full debug info so sanitizer and test failures point at useful source locations.
-      "-fno-omit-frame-pointer" # Preserves frame pointers for reliable sanitizer backtraces.
-      "-fstack-protector-strong" # Adds stack canaries to functions with likely stack-smashing risk.
-      "-D_FORTIFY_SOURCE=3" # Adds compile-time and runtime bounds checks for supported libc calls.
-      "-fPIE" # Builds position-independent objects required for a PIE executable.
-      "-fsanitize=address,undefined" # Instruments memory-safety and undefined-behavior checks.
+      "-O1"
+      "-g3"
+      "-fno-omit-frame-pointer"
+      "-fstack-protector-strong"
+      "-D_FORTIFY_SOURCE=3"
+      "-fPIE"
+      "-fsanitize=address,undefined"
     ]
     ++ extraHardeningFlags;
   hardeningLinkerFlags =
     [
-      "-Wl,-z,relro,-z,now" # Makes relocation tables read-only and resolves symbols at startup.
-      "-pie" # Links the executable as position-independent so ASLR can randomize it fully.
-      "-fsanitize=address,undefined" # Links the sanitizer runtimes required by the instrumentation.
+      "-Wl,-z,relro,-z,now"
+      "-pie"
+      "-fsanitize=address,undefined"
     ]
     ++ extraHardeningLinkerFlags;
 
@@ -64,7 +43,7 @@
     cd source
   '';
 in
-  pkgs.runCommand "code-check" {
+  pkgs.runCommand "c-lint-check" {
     nativeBuildInputs = with pkgs;
       [
         clang-tools
@@ -127,6 +106,5 @@ in
       done | sort -zu
     )
 
-    ctest --test-dir ${lib.escapeShellArg buildDir} --output-on-failure
     touch "$out"
   ''

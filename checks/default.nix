@@ -23,72 +23,79 @@
   pkgs,
   src,
   extraPackages ? [],
-  formatDirs ? null,
   nixDirs ? null,
-  sourceDirs ? null,
-  headerDirs ? null,
-  extraFormatDirs ? [],
   extraNixDirs ? [],
-  extraSourceDirs ? [],
-  extraHeaderDirs ? [],
-  headerIncludeFlags ? [],
-  extraCmakeArgs ? [],
-  extraHardeningFlags ? [],
-  extraHardeningLinkerFlags ? [],
-  buildDir ? "build/hardened",
+  c ? {},
+  zig ? {},
+  enableC ? builtins.pathExists (src + "/CMakeLists.txt"),
+  enableCFormat ? null,
+  enableCLint ? enableC,
+  enableCTestCheck ? enableC,
+  enableZig ? builtins.pathExists (src + "/build.zig"),
+  enableZigLint ? enableZig,
+  enableZigTest ? enableZig,
 }: let
   lib = pkgs.lib;
 
-  existing = paths: builtins.filter (path: builtins.pathExists (src + "/${path}")) paths;
+  pathHasCFiles = path: let
+    entries = builtins.readDir path;
+  in
+    lib.any (
+      name: let
+        type = entries.${name};
+        child = path + "/${name}";
+      in
+        (type == "regular" && (lib.hasSuffix ".c" name || lib.hasSuffix ".h" name))
+        || (type == "directory" && pathHasCFiles child)
+    ) (builtins.attrNames entries);
+  hasCFiles =
+    lib.any (
+      path:
+        builtins.pathExists (src + "/${path}")
+        && pathHasCFiles (src + "/${path}")
+    ) [
+      "src"
+      "tests"
+      "include"
+    ];
+  effectiveEnableCFormat =
+    if enableCFormat == null
+    then enableC || hasCFiles
+    else enableCFormat;
 
-  defaultFormatDirs = existing ["src" "tests" "include"];
-  defaultNixDirs = existing ["flake.nix" "shell.nix" "checks" "packages" "tools" "nix"];
-  defaultSourceDirs = existing ["src" "tests"];
-  defaultHeaderDirs = existing ["include"];
+  mkAggregate = name: drvAttrs:
+    pkgs.runCommand name {} ''
+      printf '%s\n' ${lib.escapeShellArgs (map builtins.toString (builtins.attrValues drvAttrs))} > /dev/null
+      touch "$out"
+    '';
 
-  effectiveFormatDirs = lib.unique ((
-      if formatDirs == null
-      then defaultFormatDirs
-      else formatDirs
-    )
-    ++ extraFormatDirs);
-  effectiveNixDirs = lib.unique ((
-      if nixDirs == null
-      then defaultNixDirs
-      else nixDirs
-    )
-    ++ extraNixDirs);
-  effectiveSourceDirs = lib.unique ((
-      if sourceDirs == null
-      then defaultSourceDirs
-      else sourceDirs
-    )
-    ++ extraSourceDirs);
-  effectiveHeaderDirs = lib.unique ((
-      if headerDirs == null
-      then defaultHeaderDirs
-      else headerDirs
-    )
-    ++ extraHeaderDirs);
-in {
-  format-check = import ./format.nix {
-    inherit pkgs src extraPackages;
-    formatDirs = effectiveFormatDirs;
-    nixDirs = effectiveNixDirs;
+  commonArgs = {
+    inherit pkgs src;
+    extraPackages = extraPackages;
+    nixDirs = nixDirs;
+    extraNixDirs = extraNixDirs;
   };
 
-  code-check = import ./code.nix {
-    inherit
-      pkgs
-      src
-      extraPackages
-      headerIncludeFlags
-      extraCmakeArgs
-      extraHardeningFlags
-      extraHardeningLinkerFlags
-      buildDir
-      ;
-    sourceDirs = effectiveSourceDirs;
-    headerDirs = effectiveHeaderDirs;
-  };
-}
+  cChecks = import ../c (commonArgs // c);
+  zigChecks = import ../zig (commonArgs // zig);
+
+  formatChecks =
+    (lib.optionalAttrs effectiveEnableCFormat {c-format-check = cChecks.format-check;})
+    // (lib.optionalAttrs enableZig {zig-format-check = zigChecks.format-check;});
+  lintChecks =
+    (lib.optionalAttrs enableCLint {c-lint-check = cChecks.lint-check;})
+    // (lib.optionalAttrs enableZigLint {zig-lint-check = zigChecks.lint-check;});
+  testChecks =
+    (lib.optionalAttrs enableCTestCheck {c-test-check = cChecks.test-check;})
+    // (lib.optionalAttrs enableZigTest {zig-test-check = zigChecks.test-check;});
+  codeChecks = lintChecks // testChecks;
+in
+  {
+    format-check = mkAggregate "format-check" formatChecks;
+    lint-check = mkAggregate "lint-check" lintChecks;
+    test-check = mkAggregate "test-check" testChecks;
+    code-check = mkAggregate "code-check" codeChecks;
+  }
+  // formatChecks
+  // lintChecks
+  // testChecks

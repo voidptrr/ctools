@@ -1,0 +1,71 @@
+{
+  pkgs,
+  src,
+  extraPackages ? [],
+  extraCmakeArgs ? [],
+  extraHardeningFlags ? [],
+  extraHardeningLinkerFlags ? [],
+  buildDir ? "build/hardened",
+  enableCTest ? true,
+}: let
+  lib = pkgs.lib;
+
+  cmakeArgs = extraCmakeArgs;
+  hardeningFlags =
+    [
+      "-O1"
+      "-g3"
+      "-fno-omit-frame-pointer"
+      "-fstack-protector-strong"
+      "-D_FORTIFY_SOURCE=3"
+      "-fPIE"
+      "-fsanitize=address,undefined"
+    ]
+    ++ extraHardeningFlags;
+  hardeningLinkerFlags =
+    [
+      "-Wl,-z,relro,-z,now"
+      "-pie"
+      "-fsanitize=address,undefined"
+    ]
+    ++ extraHardeningLinkerFlags;
+
+  shellArgs = values: lib.escapeShellArgs values;
+  copySource = ''
+    cp -R --no-preserve=mode,ownership ${src} source
+    cd source
+  '';
+in
+  pkgs.runCommand "c-test-check" {
+    nativeBuildInputs = with pkgs;
+      [
+        cmake
+        gcc
+        ninja
+      ]
+      ++ extraPackages;
+  } ''
+    ${copySource}
+
+    cmake_args=(${shellArgs cmakeArgs})
+
+    rm -rf ${lib.escapeShellArg buildDir}
+
+    cmake \
+      -S . \
+      -B ${lib.escapeShellArg buildDir} \
+      -G Ninja \
+      -DCMAKE_C_FLAGS=${lib.escapeShellArg (shellArgs hardeningFlags)} \
+      -DCMAKE_EXE_LINKER_FLAGS=${lib.escapeShellArg (shellArgs hardeningLinkerFlags)} \
+      "''${cmake_args[@]}"
+
+    cmake --build ${lib.escapeShellArg buildDir}
+
+    ${
+      if enableCTest
+      then "ctest --test-dir ${lib.escapeShellArg buildDir} --output-on-failure"
+      else "true"
+    }
+
+    touch "$out"
+  ''

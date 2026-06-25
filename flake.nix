@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 {
-  description = "shared C project tooling";
+  description = "shared C and Zig project tooling";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -42,29 +42,39 @@
         });
   in {
     lib = {
-      mkCShell = import ./shell.nix;
-      mkCChecks = import ./checks;
-      mkZigCChecks = import ./checks/zig.nix;
+      mkShell = import ./shell.nix;
+      mkChecks = import ./checks;
+      mkCShell = import ./c/shell.nix;
+      mkCChecks = import ./c;
+      mkZigShell = import ./zig/shell.nix;
+      mkZigChecks = import ./zig;
+      mkZigCChecks = import ./zig/c.nix;
     };
 
     formatter = forEachSystem ({pkgs}: pkgs.alejandra);
 
     packages = forEachSystem ({pkgs}: let
-      format-code = import ./packages/format-code.nix {inherit pkgs;};
+      format-code = import ./format-code.nix {inherit pkgs;};
+      c-format-code = import ./c/format-code.nix {inherit pkgs;};
+      zig-format-code = import ./zig/format-code.nix {inherit pkgs;};
     in {
-      inherit format-code;
+      inherit format-code c-format-code zig-format-code;
       default = format-code;
     });
 
     devShells = forEachSystem ({pkgs}: {
-      default = self.lib.mkCShell {inherit pkgs;};
+      default = self.lib.mkShell {
+        inherit pkgs;
+        enableC = true;
+        enableZig = true;
+      };
     });
 
     checks = forEachSystem ({pkgs}: let
       checks = self.lib.mkCChecks {
         inherit pkgs;
         src = self;
-        nixDirs = ["flake.nix" "shell.nix" "checks" "packages"];
+        nixDirs = ["flake.nix" "shell.nix" "format-code.nix" "checks" "c" "zig"];
       };
     in {
       inherit (checks) format-check;

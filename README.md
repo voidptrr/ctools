@@ -1,4 +1,4 @@
-# ctools
+# vtools
 
 Shared C and Zig project tooling for Nix flakes and GitHub Actions.
 

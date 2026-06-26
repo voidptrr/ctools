@@ -21,40 +21,13 @@
 # SOFTWARE.
 {
   pkgs,
-  src ? ./.,
   extraPackages ? [],
   buildInputs ? [],
   nativeBuildInputs ? [],
-  enableC ? null,
-  enableZig ? builtins.pathExists (src + "/build.zig"),
+  enableC ? false,
+  enableZig ? false,
 }: let
   lib = pkgs.lib;
-  pathHasCFiles = path: let
-    entries = builtins.readDir path;
-  in
-    lib.any (
-      name: let
-        type = entries.${name};
-        child = path + "/${name}";
-      in
-        (type == "regular" && (lib.hasSuffix ".c" name || lib.hasSuffix ".h" name))
-        || (type == "directory" && pathHasCFiles child)
-    ) (builtins.attrNames entries);
-  hasCFiles =
-    lib.any (
-      path:
-        builtins.pathExists (src + "/${path}")
-        && pathHasCFiles (src + "/${path}")
-    ) [
-      "src"
-      "tests"
-      "include"
-    ];
-  effectiveEnableC =
-    if enableC == null
-    then builtins.pathExists (src + "/CMakeLists.txt") || hasCFiles
-    else enableC;
-  format-code = import ./format-code.nix {inherit pkgs;};
   cPackages = with pkgs; [
     gcc
     cmake
@@ -63,13 +36,11 @@
   ];
   zigPackages = with pkgs; [
     zig
+    zls
   ];
   defaultPackages =
-    [
-      pkgs.alejandra
-      format-code
-    ]
-    ++ lib.optionals effectiveEnableC cPackages
+    []
+    ++ lib.optionals enableC cPackages
     ++ lib.optionals enableZig zigPackages;
 in
   pkgs.mkShell {

@@ -49,7 +49,7 @@
     formatter = forEachSystem ({pkgs}: pkgs.alejandra);
 
     packages = forEachSystem ({pkgs}: let
-      format-code = import ./format-code.nix {inherit pkgs;};
+      format-code = pkgs.callPackage ./format-code.nix {};
     in {
       inherit format-code;
       default = format-code;
@@ -67,8 +67,7 @@
       checks = self.lib.mkChecks {
         inherit pkgs;
         src = self;
-        enableC = false;
-        enableZig = false;
+        enableNixFormat = true;
         nixDirs = ["flake.nix" "shell.nix" "format-code.nix" "checks"];
       };
     in {

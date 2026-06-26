@@ -27,7 +27,6 @@
   extraHardeningFlags ? [],
   extraHardeningLinkerFlags ? [],
   buildDir ? "build/hardened",
-  enableCTest ? true,
 }: let
   lib = pkgs.lib;
 
@@ -82,11 +81,7 @@ in
 
     cmake --build ${lib.escapeShellArg buildDir}
 
-    ${
-      if enableCTest
-      then "ctest --test-dir ${lib.escapeShellArg buildDir} --output-on-failure"
-      else "true"
-    }
+    ctest --test-dir ${lib.escapeShellArg buildDir} --output-on-failure
 
     touch "$out"
   ''

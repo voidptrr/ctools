@@ -25,8 +25,7 @@
   extraPackages ? [],
   nixDirs ? [],
 }: let
-  lib = pkgs.lib;
-  shellArgs = values: lib.escapeShellArgs values;
+  formatCommands = import ../format-commands.nix {inherit pkgs;};
 
   copySource = ''
     cp -R --no-preserve=mode,ownership ${src} source
@@ -38,11 +37,6 @@ in
   } ''
     ${copySource}
 
-    nix_dirs=(${shellArgs nixDirs})
-
-    if [ "''${#nix_dirs[@]}" -gt 0 ]; then
-      alejandra --check "''${nix_dirs[@]}"
-    fi
-
+    ${formatCommands.nix {inherit nixDirs;}}
     touch "$out"
   ''

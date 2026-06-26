@@ -105,6 +105,11 @@ Available check flags:
 
 All default to `false`.
 
+Enabled checks provide their standard tools automatically. C checks include the
+CMake/Ninja/GCC/Clang toolchain, and Zig checks include Zig. C test suites
+should run through `enableCTest`, not through a Zig build step. Use
+`extraPackages` only for project tools outside those standard sets.
+
 ## Check Outputs
 
 `mkChecks` always returns aggregate checks:

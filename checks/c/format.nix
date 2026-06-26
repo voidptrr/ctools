@@ -26,8 +26,7 @@
   formatDirs ? [],
   nixDirs ? [],
 }: let
-  lib = pkgs.lib;
-  shellArgs = values: lib.escapeShellArgs values;
+  formatCommands = import ../format-commands.nix {inherit pkgs;};
 
   copySource = ''
     cp -R --no-preserve=mode,ownership ${src} source
@@ -45,19 +44,7 @@ in
   } ''
     ${copySource}
 
-    format_dirs=(${shellArgs formatDirs})
-    nix_dirs=(${shellArgs nixDirs})
-
-    if [ "''${#nix_dirs[@]}" -gt 0 ]; then
-      alejandra --check "''${nix_dirs[@]}"
-    fi
-
-    find_existing_c_files() {
-      for dir in "''${format_dirs[@]}"; do
-        [ ! -d "$dir" ] || find "$dir" -type f \( -name '*.c' -o -name '*.h' \) -print0
-      done
-    }
-
-    find_existing_c_files | xargs -0 --no-run-if-empty clang-format --dry-run --Werror
+    ${formatCommands.nix {inherit nixDirs;}}
+    ${formatCommands.c {inherit formatDirs;}}
     touch "$out"
   ''

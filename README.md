@@ -1,73 +1,113 @@
+<!--
+MIT License
+
+Copyright (c) 2026 Tommaso Bruno
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+
 # vtools
 
-Small Nix helpers for C, Zig, and C projects built with Zig.
+Small Nix helpers for projects that use C, Zig, or both.
 
-The public API is intentionally small:
+The interface is explicit. Nothing is enabled by scanning your source tree, and
+all language/check options are off by default. Turn on exactly the tools or
+checks you want.
+
+Public API:
 
 - `vtools.lib.mkShell`
 - `vtools.lib.mkChecks`
-- `packages.<system>.format-code`
+- `vtools.packages.${system}.format-code`
 
-The check implementation is still split internally by language, but users should
-not need language-specific helper functions.
+## Dev Shells
 
-## Dev Shell
+`mkShell` creates a development shell from two toolchain flags:
 
 ```nix
 devShells.default = vtools.lib.mkShell {
   inherit pkgs;
-  src = ./.;
+  enableC = true;
+  enableZig = true;
   extraPackages = [pkgs.pkg-config];
 };
 ```
 
-`mkShell` detects C files or `CMakeLists.txt` to include C tooling, and detects
-`build.zig` to include Zig. Override detection with `enableC` and `enableZig`.
+Defaults:
+
+- `enableC = false`
+- `enableZig = false`
+
+`enableC` adds:
+
+- `gcc`
+- `cmake`
+- `ninja`
+- `clang-tools`
+
+`enableZig` adds:
+
+- `zig`
+- `zls`
+
+You can still pass normal shell inputs:
 
 ```nix
 devShells.default = vtools.lib.mkShell {
   inherit pkgs;
-  src = ./.;
   enableC = true;
-  enableZig = true;
+  buildInputs = [pkgs.openssl];
+  nativeBuildInputs = [pkgs.pkg-config];
 };
 ```
 
 ## Checks
 
-Use one checks helper for C, Zig, and Zig-built C projects:
+`mkChecks` returns flake checks. Every check is opt-in:
 
 ```nix
 checks = vtools.lib.mkChecks {
   inherit pkgs;
   src = ./.;
+
+  enableCFormat = true;
+  enableCLint = true;
+  enableCTest = true;
 };
 ```
 
-Default detection:
+Available check flags:
 
-- `enableC` is true when C files exist under `src`, `tests`, or `include`, or when `CMakeLists.txt` exists.
-- `enableZig` is true when `build.zig` exists.
-- CMake lint/test checks only run when `CMakeLists.txt` exists.
-- Zig checks run through `zig build` and `zig build test --summary all`.
+- `enableNixFormat`
+- `enableCFormat`
+- `enableCLint`
+- `enableCTest`
+- `enableZigFormat`
+- `enableZigLint`
+- `enableZigBuild`
+- `enableZigTest`
 
-Force a project shape explicitly:
-
-```nix
-checks = vtools.lib.mkChecks {
-  inherit pkgs;
-  src = ./.;
-  enableC = true;
-  enableZig = true;
-};
-```
-
-This is the normal setup for a C project built by Zig: C formatting is enabled
-from the C files, and Zig build/test checks are enabled from `build.zig`.
+All default to `false`.
 
 ## Check Outputs
 
-`mkChecks` returns aggregate checks:
+`mkChecks` always returns aggregate checks:
 
 - `format-check`
 - `lint-check`
@@ -75,110 +115,156 @@ from the C files, and Zig build/test checks are enabled from `build.zig`.
 - `test-check`
 - `code-check`, which aggregates lint, build, and test
 
-It also returns language-specific checks when enabled:
+It also returns enabled concrete checks:
 
 - `nix-format-check`
 - `c-format-check`
-- `c-lint-check`, only for CMake projects
-- `c-test-check`, only for CMake projects
+- `c-lint-check`
+- `c-test-check`
 - `zig-format-check`
 - `zig-lint-check`
 - `zig-build-check`
 - `zig-test-check`
 
-## What Checks Do
+## C Checks
 
-Nix formatting uses Alejandra over `nixDirs`.
+C formatting runs `clang-format --dry-run --Werror` over C and header files.
 
-C formatting uses `clang-format --dry-run --Werror` over C files under
-`cFormatDirs`. C lint/test checks are CMake-based. `c-lint-check` configures,
-builds, and runs `clang-tidy`; `c-test-check` configures, builds, and runs
-`ctest` unless `enableCTest = false`.
+```nix
+checks = vtools.lib.mkChecks {
+  inherit pkgs;
+  src = ./.;
 
-Zig formatting uses `zig fmt --check`; directories are passed directly to Zig,
-so Zig handles recursion. Zig lint uses `zig ast-check` over discovered Zig
-files. Zig build and test checks run:
+  enableCFormat = true;
+  cFormatDirs = ["src" "include" "tests"];
+};
+```
+
+C lint configures a hardened CMake/Ninja build, builds it, then runs
+`clang-tidy` over C sources and headers.
+
+```nix
+checks = vtools.lib.mkChecks {
+  inherit pkgs;
+  src = ./.;
+
+  enableCLint = true;
+  cSourceDirs = ["src" "tests"];
+  cHeaderDirs = ["include"];
+  extraCmakeArgs = ["-DBUILD_TESTING=ON"];
+};
+```
+
+CTest configures and builds the CMake project, then runs:
 
 ```sh
-zig build
-zig build test --summary all
+ctest --test-dir build/hardened --output-on-failure
 ```
-
-Both commands use temporary local and global Zig cache directories inside the Nix
-build sandbox.
-
-## Common Options
-
-Disable an entire phase:
 
 ```nix
 checks = vtools.lib.mkChecks {
   inherit pkgs;
   src = ./.;
-  enableLint = false;
-  enableBuild = true;
-  enableTest = true;
+
+  enableCTest = true;
 };
 ```
 
-Disable CTest while still building CMake tests:
+Useful C options:
+
+- `cFormatDirs`, default `["src" "tests" "include"]`
+- `cSourceDirs`, default `["src" "tests"]`
+- `cHeaderDirs`, default `["include"]`
+- `cHeaderIncludeFlags`, default `[]`
+- `extraCmakeArgs`, default `[]`
+- `extraHardeningFlags`, default `[]`
+- `extraHardeningLinkerFlags`, default `[]`
+- `cBuildDir`, default `"build/hardened"`
+
+## Zig Checks
+
+Zig formatting runs `zig fmt --check`:
 
 ```nix
 checks = vtools.lib.mkChecks {
   inherit pkgs;
   src = ./.;
-  enableCTest = false;
+
+  enableZigFormat = true;
+  zigFormatDirs = ["build.zig" "src" "tests"];
 };
 ```
 
-Append Zig build options:
+Zig lint runs `zig ast-check` over discovered `.zig` files:
 
 ```nix
 checks = vtools.lib.mkChecks {
   inherit pkgs;
   src = ./.;
+
+  enableZigLint = true;
+  zigLintDirs = ["build.zig" "src" "tests"];
+};
+```
+
+Zig build and test run through `zig build`:
+
+```nix
+checks = vtools.lib.mkChecks {
+  inherit pkgs;
+  src = ./.;
+
+  enableZigBuild = true;
+  enableZigTest = true;
   extraZigBuildArgs = ["-Doptimize=ReleaseSafe"];
   extraZigTestArgs = ["-Dfoo=true"];
 };
 ```
 
-Replace default paths when needed:
+Useful Zig options:
+
+- `zigFormatDirs`, default `["build.zig" "build.zig.zon" "src" "tests" "examples"]`
+- `zigLintDirs`, default `["build.zig" "src" "tests" "examples"]`
+- `zigBuildArgs`, default `[]`
+- `extraZigBuildArgs`, default `[]`
+- `zigTestArgs`, default `["test" "--summary" "all"]`
+- `extraZigTestArgs`, default `[]`
+
+## Nix Formatting
+
+Enable Nix formatting explicitly:
 
 ```nix
 checks = vtools.lib.mkChecks {
   inherit pkgs;
   src = ./.;
-  nixDirs = ["flake.nix" "nix"];
-  cFormatDirs = ["src" "include" "examples"];
-  zigFormatDirs = ["build.zig" "tools"];
+
+  enableNixFormat = true;
+  nixDirs = ["flake.nix" "shell.nix" "nix"];
 };
 ```
 
-Useful path options:
+## Formatter Package
 
-- `nixDirs`, `extraNixDirs`
-- `cFormatDirs`, `extraCFormatDirs`
-- `cSourceDirs`, `extraCSourceDirs`
-- `cHeaderDirs`, `extraCHeaderDirs`
-- `zigFormatDirs`, `extraZigFormatDirs`
-- `zigLintDirs`, `extraZigLintDirs`
+`format-code` formats files in place. Its language flags are also off by
+default, so expose a project-specific package with the languages you want:
 
-## Formatter
+```nix
+packages.format-code = vtools.packages.${system}.format-code.override {
+  enableNix = true;
+  enableC = true;
+  enableZig = true;
 
-The package `format-code` formats Nix, C, and Zig files in-place:
-
-```sh
-nix run github:voidptrr/vtools#format-code
+  nixDirs = ["flake.nix" "nix"];
+  cFormatDirs = ["src" "include"];
+  zigFormatDirs = ["build.zig" "src"];
+};
 ```
 
-Runtime switches:
+Then run:
 
 ```sh
-CTOOLS_ENABLE_C=0 format-code
-CTOOLS_ENABLE_ZIG=0 format-code
-CTOOLS_C_FORMAT_DIRS="src include" format-code
-CTOOLS_ZIG_FORMAT_DIRS="build.zig src" format-code
-CTOOLS_NIX_DIRS="flake.nix nix" format-code
+nix run .#format-code
 ```
 
 ## GitHub Actions

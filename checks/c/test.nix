@@ -62,6 +62,7 @@ in
         cmake
         gcc
         ninja
+        zig
       ]
       ++ extraPackages;
   } ''

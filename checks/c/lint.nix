@@ -72,6 +72,7 @@ in
         findutils
         gcc
         ninja
+        zig
       ]
       ++ extraPackages;
   } ''
